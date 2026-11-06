@@ -21,7 +21,9 @@ function M.check()
   for _, name in ipairs(opts.extra_linters) do
     selected[name] = true
   end
-  for _, name in ipairs(vim.tbl_keys(selected)) do
+  local names = vim.tbl_keys(selected)
+  table.sort(names)
+  for _, name in ipairs(names) do
     local loaded, builtin = pcall(require, "lint_tools.linters." .. name)
     local definition = vim.tbl_extend("force", loaded and builtin or {}, opts.linters[name] or {})
     local cmd = definition.cmd

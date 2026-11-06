@@ -43,6 +43,37 @@ local function diagnostics(buffer, name)
   return vim.diagnostic.get(buffer, { namespace = diag.namespace(name or "one") })
 end
 
+setup({
+  linters = {
+    one = vim.tbl_extend("force", definition(), {
+      cwd = function()
+        return nil
+      end,
+      args = function()
+        return nil
+      end,
+    }),
+  },
+})
+lint.run({ bufnr = a })
+assert(type(starts[1].opts.cwd) == "string" and #starts[1].command == 1)
+finish(1)
+
+setup({
+  linters = {
+    one = vim.tbl_extend("force", definition(), {
+      parser = function(_, ctx)
+        vim.api.nvim_buf_set_lines(ctx.bufnr, 0, -1, false, { "changed by parser" })
+        return { { lnum = 0, message = "outdated" } }
+      end,
+    }),
+  },
+})
+lint.run({ bufnr = a })
+finish(1)
+assert(lint.status(a)[1].status == "stale" and #diagnostics(a) == 0)
+vim.api.nvim_buf_set_lines(a, 0, -1, false, { "abc" })
+
 setup()
 lint.run({ bufnr = a })
 lint.run({ bufnr = a })

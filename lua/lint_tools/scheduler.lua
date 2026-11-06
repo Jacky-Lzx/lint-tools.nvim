@@ -40,6 +40,14 @@ function M.new(opts)
           local stream = job.definition.stream or "stdout"
           local output = stream == "both" and (exit.stdout .. "\n" .. exit.stderr) or exit[stream]
           local entries = job.definition.parser(output, job.ctx)
+          -- User parsers may invoke editor APIs or replace this request.
+          if job.cancelled then
+            return
+          end
+          if not context.valid(job.ctx) then
+            clear(job, "stale", "buffer changed during parsing")
+            return
+          end
           local codes = job.definition.ok_exit_codes or { 0 }
           local accepted
           if type(codes) == "function" then
@@ -53,10 +61,12 @@ function M.new(opts)
         job.exit_code = exit.code
         -- Keep failure context bounded and available through :LintToolsInfo.
         job.stderr = exit.stderr:sub(1, 4096)
-        if ok then
-          job.status, job.reason = "done", nil
-        else
-          clear(job, "error", tostring(err))
+        if not job.cancelled then
+          if not ok then
+            clear(job, "error", tostring(err))
+          elseif job.status == "running" then
+            job.status, job.reason = "done", nil
+          end
         end
       end
     end
@@ -170,9 +180,13 @@ function M.new(opts)
             assert(ctx.file_stamp, "input file is unavailable")
           end
           local function evaluate(value)
-            return type(value) == "function" and value(ctx) or value
+            if type(value) == "function" then
+              return value(ctx)
+            end
+            return value
           end
           ctx.cwd = evaluate(definition.cwd) or ctx.root
+          assert(type(ctx.cwd) == "string" and ctx.cwd ~= "", "cwd must be a directory string")
           local command = evaluate(definition.cmd)
           assert(type(command) == "string" and command ~= "", "missing command")
           if vim.fn.executable(command) ~= 1 then
