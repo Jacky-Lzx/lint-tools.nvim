@@ -24,10 +24,15 @@ function M.run(opts)
 end
 
 function M.cancel(buf)
-  current():cancel(buffer(buf))
+  if engine then
+    engine:cancel(buffer(buf))
+  end
 end
 
 function M.disable(buf)
+  if not engine then
+    return
+  end
   local e = current()
   if buf then
     buf = buffer(buf)
@@ -39,6 +44,9 @@ function M.disable(buf)
 end
 
 function M.enable(buf)
+  if not engine then
+    M.setup()
+  end
   local e = current()
   if buf then
     e.disabled[buffer(buf)] = nil
@@ -48,11 +56,11 @@ function M.enable(buf)
 end
 
 function M.status(buf)
-  return current():status(buf == 0 and buffer(0) or buf)
+  return engine and engine:status(buf == 0 and buffer(0) or buf) or {}
 end
 
 function M.config()
-  return vim.deepcopy(current().opts)
+  return engine and vim.deepcopy(engine.opts) or nil
 end
 
 function M.info(buf)
@@ -86,7 +94,20 @@ function M.info(buf)
   return text
 end
 
+function M.dispose()
+  if engine then
+    engine:cancel(nil, "disposed")
+  end
+  engine = nil
+  pcall(vim.api.nvim_del_augroup_by_name, "LintTools")
+  for _, name in ipairs({ "LintToolsRun", "LintToolsCancel", "LintToolsInfo", "LintToolsEnable", "LintToolsDisable" }) do
+    require("lint_tools.user_command").delete(name)
+  end
+end
+
 function M.setup(opts)
+  assert(opts == nil or type(opts) == "table", "lint-tools.nvim: setup expects a table")
+  opts = vim.deepcopy(opts or {})
   local normalized = require("lint_tools.config").normalize(opts)
   if engine then
     engine:cancel(nil, "setup replaced")

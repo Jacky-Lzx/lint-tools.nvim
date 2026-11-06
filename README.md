@@ -35,3 +35,15 @@ Commands belong to the plugin; choose global entry keys and short aliases in
 your configuration. Registration reports same-name conflicts without replacing
 user commands. Reconfiguration refreshes only commands still owned by this
 plugin, and cleanup preserves subsequent user replacements.
+
+## Setup contract
+
+`setup(nil)` uses defaults. Configuration must be a table; caller-owned tables
+are copied before use. Invalid configuration types do not replace live handlers
+or commands. Repeating setup must not accumulate automatic registrations.
+
+`disable(buf)` retains options and buffer policy for `enable(buf)`. `dispose()`
+cancels owned jobs/queued work, removes automatic handlers and unchanged owned
+commands, and forgets runtime options. It is repeatable and safe before setup.
+Cold status/config queries stay passive; explicit `enable()` after disposal uses
+defaults. Invalid setup options leave the running scheduler unchanged.
