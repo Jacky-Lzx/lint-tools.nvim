@@ -1,0 +1,133 @@
+*lint-tools.txt* External buffer linters                         *lint-tools*
+
+Requires Neovim 0.11+. No runtime dependencies.
+
+SETUP                                                     *lint-tools-setup*
+>
+  require('lint_tools').setup({
+    linters_by_ft = {
+      sh = { 'bash' }, fish = { 'fish' }, python = { 'ruff' },
+      swift = { 'swiftlint' }, gdscript = { 'gdlint' },
+      verilog = { 'iverilog' }, systemverilog = { 'iverilog' },
+    },
+    extra_linters = { 'codespell' },
+    linters = {
+      codespell = { condition = function(ctx)
+        return #vim.lsp.get_clients({ bufnr = ctx.bufnr, name = 'typos_lsp' }) == 0
+      end },
+    },
+  })
+<
+Defaults: enabled=true, events={'BufWritePost'}, concurrency=2, timeout=10000
+(milliseconds), max_file_size=1048576, max_output=1048576 (combined stdout and
+stderr bytes). An empty events={} disables automatic runs. Lists replace
+defaults. Repeating setup cancels prior work and replaces owned autocmds.
+
+root_markers defaults to {'.git', 'pyproject.toml', 'Package.swift',
+'project.godot', 'Cargo.toml'}. The closest ancestor containing any marker is
+the root; otherwise use the file directory (editor cwd for unnamed buffers).
+Processes get their own cwd. The editor cwd is never changed.
+
+linters_by_ft uses exact filetype keys; no implicit sh/bash or compound-filetype
+fallback. extra_linters applies to all eligible buffers. Special, unloaded,
+empty-filetype and oversized buffers are skipped. Missing commands and false
+conditions skip only the affected provider.
+
+API                                                         *lint-tools-api*
+>
+  local lint = require('lint_tools')
+  lint.run()                                  -- current buffer selection
+  lint.run({ bufnr = buf, linters = {'ruff'} }) -- explicit providers
+  lint.cancel(buf)                            -- current buffer if omitted
+  lint.disable()                              -- globally; cancel and clear
+  lint.enable()                               -- globally; no automatic run
+  lint.disable(buf)                           -- buffer-local override
+  lint.enable(buf)                            -- remove local override
+  lint.status(buf)                            -- records; omit buf for all
+  lint.config()                               -- independent config copy
+  lint.info(buf)                              -- show status; return text
+<
+Buffer number 0 means current buffer. Explicit runs still respect enablement,
+conditions, size and saved-file guards. Global enable does not remove explicit
+buffer-local disables. File-input tools never save buffers themselves.
+
+:LintToolsRun, :LintToolsCancel and :LintToolsInfo operate on the current buffer.
+:LintToolsEnable and :LintToolsDisable change global enablement.
+:checkhealth lint-tools checks selected tools and recent failures. Tool
+installation, fixing and formatting are outside this plugin's scope.
+
+ADAPTERS                                               *lint-tools-adapters*
+
+Built in: bash, fish, ruff, swiftlint, gdlint, iverilog, codespell. Definitions
+load when selected. User definitions override individual top-level fields:
+>
+  linters = {
+    custom = {
+      cmd = 'my-linter',     -- string or function(ctx) -> string
+      args = function(ctx) return {'--file', ctx.filename} end,
+      stdin = true,         -- false/nil: file input
+      stream = 'stdout',    -- stdout, stderr or both
+      ok_exit_codes = {0, 1},
+      parser = function(output, ctx)
+        return {{lnum = 0, col = 0, message = 'example'}}
+      end,
+    },
+  }
+<
+args is a list or function(ctx) returning a list. Individual arguments may be
+function(ctx). cwd is a string or function(ctx), default ctx.root. env is an
+optional environment table. timeout overrides the global timeout. condition(ctx)
+may return false to skip. prepare(ctx) may return per-run definition overrides.
+File input appends ctx.filename unless append_fname=false. Arguments are passed
+directly, without a shell. No implicit local node_modules executable lookup.
+
+ok_exit_codes defaults to {0}; it may also be function(code, entries) -> boolean.
+Abnormal signals, timeouts and output overflow always fail. Text-based builtins
+accept nonzero codes only when parsed findings exist; this accommodates tools
+whose exit code counts errors. JSON parse errors are failures, not empty checks.
+
+ctx contains bufnr, filename, filetype, changedtick, modified, lines, input, root,
+and cwd (available to args/parser). Each job gets an independent text snapshot.
+Rows and columns in returned diagnostics are zero based; columns are UTF-8 byte
+offsets. Use require('lint_tools.parsers').position(ctx, row, column, encoding)
+to convert one-based positions; encoding is 'bytes', 'utf-16' or 'utf-32'. EOF
+positions are anchored to the end of the last input line. parsers.json(output)
+requires a JSON array. parsers.errorformat(efm, defaults) handles compiler text.
+
+Diagnostics may include filename (absolute or relative to process cwd). Results
+for other files are ignored and counted in status: a buffer check never loads
+included files or takes over diagnostics belonging to another buffer.
+
+Ruff uses stdin with --no-fix. SwiftLint uses file input, JSON reporting and its
+native config discovery; no cross-project config cache. Icarus uses -g2012,
+-Wall, -y ., -o /dev/null, and combines both output streams. For other include
+directories supply args explicitly. GDLint severities retain its Error/Warning
+classification. Codespell reports every matching occurrence on the input line.
+
+LIFECYCLE                                             *lint-tools-lifecycle*
+
+The latest request for each (buffer, linter) supersedes previous work. Cancelled
+running jobs retain their concurrency slot until process completion. Pending
+requests coalesce. Old replies are rejected even when process cancellation
+races with completion. Content ticks, names, filetypes and buffer lifetime must
+match the input snapshot before publication. File-input runs additionally check
+the file's size and modification/change timestamps. No cursor or window focus
+changes.
+
+Each provider has its own vim.diagnostic namespace. Cancellation, content/name/
+filetype invalidation, disablement, skipping and failure clear that provider's
+old diagnostics. Empty successful results clear them too. Diagnostics update
+only when the complete process output has been parsed successfully.
+
+Status records are bounded to the latest request per live buffer and provider.
+Input/output data is released after completion. Records include argv, cwd,
+status, reason, duration_ms, exit_code, count, ignored_files, and up to 4096
+bytes of stderr. No persistent logs or additional diagnostic UI are installed.
+
+DEVELOPMENT                                           *lint-tools-development*
+
+Run ./tests/run.sh for deterministic scheduling tests and available real tools.
+Set LINT_TOOLS_REQUIRE_REAL=1 to require all seven tools rather than skip missing
+ones. Run python3 tests/tui.py for a real PTY save/edit/diagnostic lifecycle.
+
+vim:tw=78:ts=8:noet:ft=help:norl:

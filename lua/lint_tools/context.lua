@@ -4,6 +4,11 @@ function M.path(path)
   return vim.uv.fs_realpath(path) or vim.fs.normalize(path)
 end
 
+function M.stamp(filename)
+  local stat = vim.uv.fs_stat(filename)
+  return stat and table.concat({ stat.size, stat.mtime.sec, stat.mtime.nsec, stat.ctime.sec, stat.ctime.nsec }, ":")
+end
+
 function M.capture(buf, opts)
   if not vim.api.nvim_buf_is_loaded(buf) then
     return nil, "buffer is not loaded"
@@ -35,6 +40,7 @@ function M.valid(ctx)
     and vim.api.nvim_buf_get_changedtick(ctx.bufnr) == ctx.changedtick
     and vim.api.nvim_buf_get_name(ctx.bufnr) == ctx.filename
     and vim.bo[ctx.bufnr].filetype == ctx.filetype
+    and (not ctx.file_stamp or M.stamp(ctx.filename) == ctx.file_stamp)
 end
 
 return M

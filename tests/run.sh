@@ -11,3 +11,4 @@ for test in tests/core.lua tests/adapters.lua tests/real.lua; do
     "${NVIM:-nvim}" --headless -u tests/minimal_init.lua -i NONE -n -l "$test"
   fi
 done
+python3 tests/tui.py

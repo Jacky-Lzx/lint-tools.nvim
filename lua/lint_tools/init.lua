@@ -57,6 +57,9 @@ end
 
 function M.info(buf)
   local lines = { "lint-tools: " .. (current().enabled and "enabled" or "disabled") }
+  if current().disabled[buffer(buf)] then
+    lines[#lines + 1] = "Buffer override: disabled"
+  end
   local ft = vim.bo[buffer(buf)].filetype
   lines[#lines + 1] = "Selected: " .. table.concat(current().opts.linters_by_ft[ft] or {}, ", ")
   lines[#lines + 1] = "Extra: " .. table.concat(current().opts.extra_linters, ", ")

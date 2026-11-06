@@ -8,10 +8,14 @@ function M.new(opts)
 
   local function clear(job, status, reason)
     job.status, job.reason = status, reason
+    job.count, job.ignored_files = 0, 0
     diagnostics.clear(job.ctx.bufnr, job.name)
   end
 
   local function cancel(job, status, reason)
+    if job.status == "queued" then
+      job.ctx.lines, job.ctx.input, job.definition = nil, nil, nil
+    end
     if job.status == "running" or job.status == "queued" then
       job.cancelled = true
       if job.process then
@@ -33,13 +37,18 @@ function M.new(opts)
         local ok, err = pcall(function()
           assert(not exit.error, exit.error)
           assert(exit.signal == 0, "process terminated by signal " .. tostring(exit.signal))
-          assert(
-            vim.list_contains(job.definition.ok_exit_codes or { 0 }, exit.code),
-            "unexpected exit code " .. tostring(exit.code)
-          )
           local stream = job.definition.stream or "stdout"
           local output = stream == "both" and (exit.stdout .. "\n" .. exit.stderr) or exit[stream]
-          job.count, job.ignored_files = diagnostics.publish(job, job.definition.parser(output, job.ctx))
+          local entries = job.definition.parser(output, job.ctx)
+          local codes = job.definition.ok_exit_codes or { 0 }
+          local accepted
+          if type(codes) == "function" then
+            accepted = codes(exit.code, entries)
+          else
+            accepted = vim.list_contains(codes, exit.code)
+          end
+          assert(accepted, "unexpected exit code " .. tostring(exit.code))
+          job.count, job.ignored_files = diagnostics.publish(job, entries)
         end)
         job.exit_code = exit.code
         -- Keep failure context bounded and available through :LintToolsInfo.
@@ -143,6 +152,11 @@ function M.new(opts)
             definition = vim.tbl_extend("force", definition, definition.prepare(ctx))
           end
           assert(type(definition.parser) == "function", "missing parser")
+          assert(definition.stdin == nil or type(definition.stdin) == "boolean", "stdin must be boolean")
+          assert(
+            definition.timeout == nil or (type(definition.timeout) == "number" and definition.timeout > 0),
+            "invalid timeout"
+          )
           assert(
             definition.stream == nil or vim.list_contains({ "stdout", "stderr", "both" }, definition.stream),
             "invalid stream"
@@ -150,6 +164,10 @@ function M.new(opts)
           if not definition.stdin and (ctx.filename == "" or ctx.modified) then
             clear(job, "skipped", "linter requires a saved, unmodified file")
             return
+          end
+          if not definition.stdin then
+            ctx.file_stamp = context.stamp(ctx.filename)
+            assert(ctx.file_stamp, "input file is unavailable")
           end
           local function evaluate(value)
             return type(value) == "function" and value(ctx) or value
@@ -162,7 +180,9 @@ function M.new(opts)
             return
           end
           job.command = { command }
-          for _, arg in ipairs(evaluate(definition.args) or {}) do
+          local args = evaluate(definition.args) or {}
+          assert(type(args) == "table" and vim.islist(args), "args must be a list")
+          for _, arg in ipairs(args) do
             local value = evaluate(arg)
             assert(type(value) == "string", "arguments must be strings")
             job.command[#job.command + 1] = value

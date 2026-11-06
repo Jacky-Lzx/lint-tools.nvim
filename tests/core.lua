@@ -144,14 +144,27 @@ vim.api.nvim_buf_delete(file, { force = true })
 finish(2)
 assert(#lint.status(file) == 0)
 
+setup({ linters = { one = vim.tbl_extend("force", definition(), { stdin = false }) } })
+local saved_path = dir .. "/disk.lua"
+vim.fn.writefile({ "abc" }, saved_path)
+local saved = vim.fn.bufadd(saved_path)
+vim.fn.bufload(saved)
+vim.bo[saved].filetype = "lua"
+lint.run({ bufnr = saved })
+vim.fn.writefile({ "changed externally" }, saved_path)
+finish(1)
+assert(lint.status(saved)[1].status == "stale", "external file changes must invalidate file-input runs")
+
 setup({
-  linters = { one = {
-    cmd = "nvim",
-    stdin = true,
-    parser = function()
-      error("malformed output")
-    end,
-  } },
+  linters = {
+    one = {
+      cmd = "nvim",
+      stdin = true,
+      parser = function()
+        error("malformed output")
+      end,
+    },
+  },
 })
 lint.run({ bufnr = a })
 finish(1)
