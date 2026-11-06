@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
+nvim --headless -u NONE -i NONE --noplugin -l tests/command_ownership.lua
 lint_tmp=$(mktemp -d)
 trap 'rm -rf "$lint_tmp"' EXIT HUP INT TERM
 export XDG_STATE_HOME="$lint_tmp/state"

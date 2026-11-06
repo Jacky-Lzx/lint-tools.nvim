@@ -28,3 +28,10 @@ Install their executables separately. Use `:checkhealth lint-tools` to inspect
 availability. `./tests/run.sh` checks asynchronous races, parsers, available real
 tools and a rendered terminal save/edit workflow. Set `LINT_TOOLS_REQUIRE_REAL=1`
 to require all seven executables.
+
+## Command ownership
+
+Commands belong to the plugin; choose global entry keys and short aliases in
+your configuration. Registration reports same-name conflicts without replacing
+user commands. Reconfiguration refreshes only commands still owned by this
+plugin, and cleanup preserves subsequent user replacements.

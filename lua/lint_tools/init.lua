@@ -138,7 +138,7 @@ function M.setup(opts)
     end,
   }
   for name, fn in pairs(commands) do
-    vim.api.nvim_create_user_command(name, fn, { desc = name, force = true })
+    require("lint_tools.user_command").create(name, fn, { desc = name, force = true })
   end
 end
 
