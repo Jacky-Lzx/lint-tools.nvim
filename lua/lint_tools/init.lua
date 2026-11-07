@@ -70,6 +70,7 @@ function M.info(buf)
       buf = alternate
     end
   end
+  local spans = {}
   local lines = { "lint-tools: " .. (current().enabled and "enabled" or "disabled") }
   if current().disabled[buffer(buf)] then
     lines[#lines + 1] = "Buffer override: disabled"
@@ -80,7 +81,10 @@ function M.info(buf)
   for _, item in ipairs(M.status(buffer(buf))) do
     lines[#lines + 1] = ("%s: %s%s"):format(item.name, item.status, item.reason and (" — " .. item.reason) or "")
     if item.command then
-      lines[#lines + 1] = "  argv: " .. vim.inspect(item.command)
+      local prefix, value = "  argv: ", vim.inspect(item.command)
+      local start = #table.concat(lines, "\n") + 1 + #prefix
+      lines[#lines + 1] = prefix .. value
+      spans[#spans + 1] = { start = start, finish = start + #value, filetype = "lua" }
       lines[#lines + 1] = "  cwd: " .. tostring(item.cwd)
     end
     if item.duration_ms then
@@ -96,7 +100,7 @@ function M.info(buf)
     end
   end
   local text = table.concat(lines, "\n")
-  vim.notify(text, vim.log.levels.INFO, { title = "LintToolsInfo" })
+  vim.notify(text, vim.log.levels.INFO, { title = "LintToolsInfo", markdown = false, spans = spans })
   return text
 end
 
