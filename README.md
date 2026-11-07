@@ -24,7 +24,7 @@ Use `:LintToolsRun`, `:LintToolsCancel`, `:LintToolsEnable`, `:LintToolsDisable`
 and `:LintToolsInfo`. See `:help lint-tools` for the API and adapter contract.
 
 Built-in adapters: bash, fish, ruff, swiftlint, gdlint, iverilog and codespell.
-Install their executables separately. Use `:checkhealth lint-tools` to inspect
+Install their executables separately. Use `:checkhealth lint_tools` to inspect
 availability. `./tests/run.sh` checks asynchronous races, parsers, available real
 tools and a rendered terminal save/edit workflow. Set `LINT_TOOLS_REQUIRE_REAL=1`
 to require all seven executables.
@@ -47,3 +47,10 @@ cancels owned jobs/queued work, removes automatic handlers and unchanged owned
 commands, and forgets runtime options. It is repeatable and safe before setup.
 Cold status/config queries stay passive; explicit `enable()` after disposal uses
 defaults. Invalid setup options leave the running scheduler unchanged.
+
+## Health and inspection
+
+Health reports actionable failures and a compact result for applicable checks. Disabled,
+optional and not-yet-activated features do not warn solely because they are inactive.
+Inspection does not configure plugins, start services or install dependencies.
+Use `:LintToolsInfo` for detailed configuration and runtime information.

@@ -64,6 +64,12 @@ function M.config()
 end
 
 function M.info(buf)
+  if (not buf or buf == 0) and vim.bo.filetype == "checkhealth" then
+    local alternate = vim.fn.bufnr("#")
+    if alternate > 0 and vim.api.nvim_buf_is_loaded(alternate) and vim.bo[alternate].buftype == "" then
+      buf = alternate
+    end
+  end
   local lines = { "lint-tools: " .. (current().enabled and "enabled" or "disabled") }
   if current().disabled[buffer(buf)] then
     lines[#lines + 1] = "Buffer override: disabled"
