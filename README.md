@@ -1,58 +1,58 @@
 # lint-tools.nvim
 
-External linter execution and diagnostics for Neovim 0.11+.
+Asynchronous external linters with native Neovim diagnostics.
 
-The plugin owns buffer check scheduling, bounded asynchronous processes and
-diagnostic publication. Tool installation stays with your tool manager;
-diagnostic rendering stays with `vim.diagnostic`.
+## Features
 
-Add this checkout to your runtimepath with your plugin manager, then configure:
+- Schedule checks on save and cancel superseded work.
+- Publish diagnostics only for the input snapshot that was checked.
+- Keep each provider isolated in its own diagnostic namespace.
+
+## Requirements
+
+Neovim **0.11+**. Install linter executables separately. No diagnostic UI or tool installer is required.
+
+## Installation
+
+With lazy.nvim:
 
 ```lua
-require("lint_tools").setup({
-  linters_by_ft = { python = { "ruff" }, sh = { "bash" } },
-})
+{
+  "Jacky-Lzx/lint-tools.nvim",
+  main = "lint_tools",
+  opts = { linters_by_ft = { python = { "ruff" } } },
+}
 ```
 
-Checks run on `BufWritePost` by default. A replacement request cancels older
-work for that buffer and provider. Results are published only if the input
-snapshot still matches the buffer. File-input linters require a saved,
-unmodified file. Diagnostics are cleared on cancellation, invalidation, failure
-or skipping; one provider never clears another provider's namespace.
+Or put this repository and its required dependencies on `runtimepath`, then call:
 
-Use `:LintToolsRun`, `:LintToolsCancel`, `:LintToolsEnable`, `:LintToolsDisable`
-and `:LintToolsInfo`. See `:help lint-tools` for the API and adapter contract.
+```lua
+require("lint_tools").setup({ linters_by_ft = { python = { "ruff" } } })
+```
 
-Built-in adapters: bash, fish, ruff, swiftlint, gdlint, iverilog and codespell.
-Install their executables separately. Use `:checkhealth lint_tools` to inspect
-availability. `./tests/run.sh` checks asynchronous races, parsers, available real
-tools and a rendered terminal save/edit workflow. Set `LINT_TOOLS_REQUIRE_REAL=1`
-to require all seven executables.
+## Usage
 
-## Command ownership
+```vim
+:LintToolsRun
+:LintToolsInfo
+```
 
-Commands belong to the plugin; choose global entry keys and short aliases in
-your configuration. Registration reports same-name conflicts without replacing
-user commands. Reconfiguration refreshes only commands still owned by this
-plugin, and cleanup preserves subsequent user replacements.
+## Documentation
 
-## Setup contract
+- [Complete reference](doc/lint-tools.txt) — `:help lint-tools`.
+- Diagnose availability with `:checkhealth lint_tools`.
 
-`setup(nil)` uses defaults. Configuration must be a table; caller-owned tables
-are copied before use. Invalid configuration types do not replace live handlers
-or commands. Repeating setup must not accumulate automatic registrations.
+## Development
 
-`disable(buf)` retains options and buffer policy for `enable(buf)`. `dispose()`
-cancels owned jobs/queued work, removes automatic handlers and unchanged owned
-commands, and forgets runtime options. It is repeatable and safe before setup.
-Cold status/config queries stay passive; explicit `enable()` after disposal uses
-defaults. Invalid setup options leave the running scheduler unchanged.
+Run from the repository root:
 
-## Health and inspection
+```sh
+python3 tests/run.py unit --filter docs
+python3 tests/run.py default
+```
 
-Health reports actionable failures and a compact result for applicable checks. Disabled,
-optional and not-yet-activated features do not warn solely because they are inactive.
-Inspection does not configure plugins, start services or install dependencies.
-Use `:LintToolsInfo` for detailed configuration and runtime information.
+See [the test workflow](tests/README.md) for dependencies, optional suites and
+retained failure evidence. Local development overrides belong in your package
+manager configuration; public installation uses the repository above.
 
-[Test workflow](tests/README.md): registered suites, filtering, required fixtures and retained failure evidence.
+[License](LICENSE).
